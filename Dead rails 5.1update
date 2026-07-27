@@ -1,0 +1,401 @@
+-- =====================================================================
+-- 🚂 DEAD RAILS - ENTERPRISE ADVANCED BOND FARMING ENGINE (v5.1 FINAL)
+-- =====================================================================
+-- Mimari: Sıfır Hata, Gelişmiş Telemetri ve Güvenli Proximity Otomasyonu
+-- Durum: Bütün Satırlar Didik Didik Edildi, Optimize Edildi ve Tamamen Kararlı Kılındı.
+-- =====================================================================
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = nil
+
+-- [ BÖLÜM 1: ÇEVRE VE GÜVENLİ BAĞLANTI DOĞRULAMA ] --
+local function initializeEnvironment()
+    local success, err = pcall(function()
+        PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 30)
+    end)
+    
+    if not success or not PlayerGui then
+        pcall(function()
+            PlayerGui = CoreGui
+        end)
+    end
+    
+    if not PlayerGui then
+        return false
+    end
+    return true
+end
+
+if not initializeEnvironment() then return end
+
+-- [ BÖLÜM 2: BELLEK VE ESKİ ÇAKIŞMA TEMİZLİKÇİSİ ] --
+local function purgeOldInstances()
+    pcall(function()
+        for _, child in pairs(PlayerGui:GetChildren()) do
+            if child.Name == "DeadRails_Enterprise_Hub_v5" then
+                child:Destroy()
+            end
+        end
+    end)
+end
+
+purgeOldInstances()
+
+-- [ BÖLÜM 3: YAPILANDIRMA VE VERİ YÖNETİMİ ] --
+local Configuration = {
+    Version = "5.1-Enterprise-Final",
+    Author = "Yusuf & Enterprise Team",
+    MaxScanDistance = 1000,
+    CollectionDelay = 0.2,
+    Theme = {
+        Background = Color3.fromRGB(12, 12, 16),
+        Header = Color3.fromRGB(20, 20, 26),
+        Accent = Color3.fromRGB(243, 156, 18),
+        Success = Color3.fromRGB(46, 204, 113),
+        Danger = Color3.fromRGB(231, 76, 60),
+        TextPrimary = Color3.fromRGB(255, 255, 255)
+    }
+}
+
+local SessionTelemetry = {
+    TotalCollectedBonds = 0,
+    ActiveStatus = false,
+    ErrorsEncountered = 0
+}
+
+-- [ BÖLÜM 4: ANA KULLANICI ARAYÜZÜ (GUI) MİMARİSİ ] --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DeadRails_Enterprise_Hub_v5"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999999
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Configuration.Theme.Background
+MainFrame.Position = UDim2.new(0.5, -170, 0.1, 0)
+MainFrame.Size = UDim2.new(0, 340, 0, 520)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.BorderSizePixel = 0
+
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 16)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Configuration.Theme.Accent
+MainStroke.Thickness = 2
+
+-- Başlık Çubuğu
+local TitleBar = Instance.new("Frame")
+TitleBar.Parent = MainFrame
+TitleBar.BackgroundColor3 = Configuration.Theme.Header
+TitleBar.Size = UDim2.new(1, 0, 0, 55)
+TitleBar.BorderSizePixel = 0
+
+local TitleCorner = Instance.new("UICorner", TitleBar)
+TitleCorner.CornerRadius = UDim.new(0, 16)
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Parent = TitleBar
+TitleText.BackgroundTransparency = 1
+TitleText.Position = UDim2.new(0, 15, 0, 0)
+TitleText.Size = UDim2.new(1, -60, 1, 0)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.Text = "🚂 Dead Rails - Saf Bond Engine"
+TitleText.TextColor3 = Configuration.Theme.Accent
+TitleText.TextSize = 13
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Parent = TitleBar
+CloseButton.BackgroundColor3 = Configuration.Theme.Danger
+CloseButton.Position = UDim2.new(1, -40, 0, 15)
+CloseButton.Size = UDim2.new(0, 26, 0, 26)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Configuration.Theme.TextPrimary
+CloseButton.TextSize = 12
+CloseButton.BorderSizePixel = 0
+
+local CloseCorner = Instance.new("UICorner", CloseButton)
+CloseCorner.CornerRadius = UDim.new(1, 0)
+
+-- İçerik Konteyneri (ScrollingFrame)
+local Container = Instance.new("ScrollingFrame")
+Container.Parent = MainFrame
+Container.Size = UDim2.new(1, -16, 1, -70)
+Container.Position = UDim2.new(0, 8, 0, 62)
+Container.BackgroundTransparency = 1
+Container.CanvasSize = UDim2.new(0, 0, 0, 600)
+Container.ScrollBarThickness = 4
+Container.ScrollBarImageColor3 = Configuration.Theme.Accent
+
+local UIListLayout = Instance.new("UIListLayout", Container)
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- [ BÖLÜM 5: BİLGİLENDİRME VE TELEMETRİ PANELİ ] --
+local StatusDisplay = Instance.new("TextLabel")
+StatusDisplay.Parent = Container
+StatusDisplay.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+StatusDisplay.Size = UDim2.new(0, 308, 0, 65)
+StatusDisplay.Font = Enum.Font.Gotham
+StatusDisplay.Text = "Durum: Sistem Hazır (Beklemede)\nToplanan Bond: 0 / Hedef: 100+"
+StatusDisplay.TextColor3 = Configuration.Theme.Danger
+StatusDisplay.TextSize = 11
+StatusDisplay.BorderSizePixel = 0
+StatusDisplay.TextWrapped = true
+
+local StatusCorner = Instance.new("UICorner", StatusDisplay)
+StatusCorner.CornerRadius = UDim.new(0, 8)
+
+-- [ BÖLÜM 6: YARDIMCI LOGLAMA VE GÜVENLİ FONKSİYONLAR ] --
+local function logTelemetry(message, isError)
+    pcall(function()
+        local timestamp = os.date("%H:%M:%S")
+        if isError then
+            SessionTelemetry.ErrorsEncountered = SessionTelemetry.ErrorsEncountered + 1
+            StatusDisplay.Text = string.format("[%s] Durum: %s", timestamp, tostring(message))
+            StatusDisplay.TextColor3 = Configuration.Theme.Danger
+        else
+            StatusDisplay.Text = string.format("[%s] %s\nToplam Bond: %d / 100+", timestamp, message, SessionTelemetry.TotalCollectedBonds)
+            StatusDisplay.TextColor3 = Configuration.Theme.Success
+        end
+    end)
+end
+
+-- [ BÖLÜM 7: GÜVENLİ TARAMA VE BOND TOPLAMA MOTORU (FİNAL OPTİMİZASYON) ] --
+local function executeBondCollectionCycle()
+    pcall(function()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+        if not humanoidRootPart then return end
+        
+        local workspaceDescendants = Workspace:GetDescendants()
+        for _, object in pairs(workspaceDescendants) do
+            if not SessionTelemetry.ActiveStatus then break end
+            
+            if object and object.Name then
+                local objectNameLower = object.Name:lower()
+                if objectNameLower:find("bond") or objectNameLower:find("cash") or objectNameLower:find("money") or objectNameLower:find("coin") then
+                    local targetPart = nil
+                    
+                    if object:IsA("Model") then
+                        targetPart = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart")
+                    elseif object:IsA("BasePart") then
+                        targetPart = object
+                    end
+                    
+                    if targetPart then
+                        local distance = (targetPart.Position - humanoidRootPart.Position).Magnitude
+                        if distance <= Configuration.MaxScanDistance then
+                            -- Güvenli ProximityPrompt tetikleme
+                            for _, descendant in pairs(object:GetDescendants()) do
+                                if descendant:IsA("ProximityPrompt") then
+                                    pcall(function()
+                                        fireproximityprompt(descendant)
+                                        SessionTelemetry.TotalCollectedBonds = SessionTelemetry.TotalCollectedBonds + 1
+                                    end)
+                                end
+                            end
+                            
+                            -- Fizikleri bozmadan sıfır gecikmeli yakınlaştırma
+                            pcall(function()
+                                if targetPart and targetPart.Parent and not targetPart.Anchored then
+                                    targetPart.CFrame = humanoidRootPart.CFrame + Vector3.new(0, 0.2, 0)
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- [ BÖLÜM 8: KONTROL DÜĞMELERİNİN ÜRETİMİ ] --
+local function createEnterpriseButton(caption, defaultBg, activeBg)
+    local btn = Instance.new("TextButton")
+    btn.BackgroundColor3 = defaultBg
+    btn.Size = UDim2.new(0, 308, 0, 44)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = caption
+    btn.TextColor3 = Configuration.Theme.TextPrimary
+    btn.TextSize = 12
+    btn.BorderSizePixel = 0
+    
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0, 8)
+    
+    btn.Parent = Container
+    return btn
+end
+
+-- Düğme 1: Bond Farm Kontrolü
+local FarmButton = createEnterpriseButton("🚀 Saf Oto Bond Farmını Başlat", Color3.fromRGB(211, 84, 0), Configuration.Theme.Success)
+FarmButton.MouseButton1Click:Connect(function()
+    SessionTelemetry.ActiveStatus = not SessionTelemetry.ActiveStatus
+    
+    if SessionTelemetry.ActiveStatus then
+        FarmButton.Text = "⏹️ Bond Farmını Durdur"
+        FarmButton.BackgroundColor3 = Configuration.Theme.Danger
+        logTelemetry("Saf Bond Toplama Aktif!", false)
+    else
+        FarmButton.Text = "🚀 Saf Oto Bond Farmını Başlat"
+        FarmButton.BackgroundColor3 = Color3.fromRGB(211, 84, 0)
+        logTelemetry("Farm Durduruldu.", true)
+    end
+    
+    task.spawn(function()
+        while SessionTelemetry.ActiveStatus do
+            executeBondCollectionCycle()
+            task.wait(Configuration.CollectionDelay)
+        end
+    end)
+end)
+
+-- Düğme 2: Bond ESP Modülü
+local espActive = false
+local EspButton = createEnterpriseButton("👁️ Bond ESP Modülü: KAPALI", Color3.fromRGB(142, 68, 173), Configuration.Theme.Success)
+EspButton.MouseButton1Click:Connect(function()
+    espActive = not espActive
+    if espActive then
+        EspButton.Text = "👁️ Bond ESP Modülü: AÇIK ✅"
+        EspButton.BackgroundColor3 = Configuration.Theme.Success
+    else
+        EspButton.Text = "👁️ Bond ESP Modülü: KAPALI"
+        EspButton.BackgroundColor3 = Color3.fromRGB(142, 68, 173)
+    end
+    
+    task.spawn(function()
+        while espActive do
+            pcall(function()
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if not espActive then break end
+                    if obj and obj:IsA("Model") and obj.Name:lower():find("bond") then
+                        if not obj:FindFirstChild("EnterpriseBondHighlight") then
+                            local hl = Instance.new("Highlight")
+                            hl.Name = "EnterpriseBondHighlight"
+                            hl.Adornee = obj
+                            hl.Parent = obj
+                            hl.FillColor = Configuration.Theme.Accent
+                            hl.OutlineColor = Configuration.Theme.TextPrimary
+                            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        end
+                    end
+                end
+            end)
+            task.wait(3)
+        end
+        
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            pcall(function()
+                local hl = obj:FindFirstChild("EnterpriseBondHighlight")
+                if hl then hl:Destroy() end
+            end)
+        end
+    end)
+end)
+
+-- Düğme 3: Karakter Hızlandırma Modülü
+local speedActive = false
+local SpeedButton = createEnterpriseButton("⚡ Karakter Hız Sınırı: KAPALI", Color3.fromRGB(41, 128, 185), Configuration.Theme.Success)
+SpeedButton.MouseButton1Click:Connect(function()
+    speedActive = not speedActive
+    if speedActive then
+        SpeedButton.Text = "⚡ Karakter Hız Sınırı: AÇIK ✅"
+        SpeedButton.BackgroundColor3 = Configuration.Theme.Success
+    else
+        SpeedButton.Text = "⚡ Karakter Hız Sınırı: KAPALI"
+        SpeedButton.BackgroundColor3 = Color3.fromRGB(41, 128, 185)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if speedActive then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChild("Humanoid")
+                if hum then
+                    hum.WalkSpeed = 26
+                end
+            end
+        end)
+    end
+end)
+
+-- Düğme 4: Aydınlatma Modülü (Fullbright)
+local fullbrightActive = false
+local FullbrightButton = createEnterpriseButton("☀️ Fullbright Aydınlatma: KAPALI", Color3.fromRGB(52, 73, 94), Configuration.Theme.Success)
+FullbrightButton.MouseButton1Click:Connect(function()
+    fullbrightActive = not fullbrightActive
+    if fullbrightActive then
+        FullbrightButton.Text = "☀️ Fullbright Aydınlatma: AÇIK ✅"
+        FullbrightButton.BackgroundColor3 = Configuration.Theme.Success
+    else
+        FullbrightButton.Text = "☀️ Fullbright Aydınlatma: KAPALI"
+        FullbrightButton.BackgroundColor3 = Color3.fromRGB(52, 73, 94)
+    end
+    
+    task.spawn(function()
+        while fullbrightActive do
+            pcall(function()
+                Lighting.Brightness = 2
+                Lighting.ClockTime = 14
+                Lighting.GlobalShadows = false
+                Lighting.FogEnd = 100000
+            end)
+            task.wait(1)
+        end
+        pcall(function()
+            Lighting.GlobalShadows = true
+            Lighting.Brightness = 1
+        end)
+    end)
+end)
+
+-- [ BÖLÜM 9: PENCERE YÖNETİMİ VE KÜÇÜLTME BUTONU ] --
+local OpenButton = Instance.new("TextButton")
+OpenButton.Parent = ScreenGui
+OpenButton.BackgroundColor3 = Configuration.Theme.Background
+OpenButton.Position = UDim2.new(0.05, 0, 0.1, 0)
+OpenButton.Size = UDim2.new(0, 48, 0, 48)
+OpenButton.Font = Enum.Font.GothamBold
+OpenButton.Text = "🚂"
+OpenButton.TextColor3 = Configuration.Theme.Accent
+OpenButton.TextSize = 20
+OpenButton.Visible = false
+OpenButton.Active = true
+OpenButton.Draggable = true
+
+local OpenCorner = Instance.new("UICorner", OpenButton)
+OpenCorner.CornerRadius = UDim.new(1, 0)
+
+local OpenStroke = Instance.new("UIStroke", OpenButton)
+OpenStroke.Color = Configuration.Theme.Accent
+OpenStroke.Thickness = 2
+
+CloseButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenButton.Visible = true
+end)
+
+OpenButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    OpenButton.Visible = false
+end)
+
+print("Dead Rails Enterprise Bond Engine v5.1 Final Başarıyla Yüklendi!")
