@@ -1,0 +1,670 @@
+-- =====================================================================
+-- 🚂 DEAD RAILS - ULTIMATE BOND-ONLY ENTERPRISE FRAMEWORK (v8.7 MASTER)
+-- =====================================================================
+-- Author: Enterprise Core Systems & Global Development Group
+-- Target Platform: Roblox - Luau Engine / Advanced Executor Environment
+-- Description: Comprehensive, multi-threaded, highly resilient automated
+--              Treasury Bond teleportation, telemetry, ESP, and memory management.
+--              STRICTLY TARGETS ONLY BONDS (TAHVİL / PARA). NO WEAPONS OR ARMOR.
+-- =====================================================================
+
+-- [ SECTION 1: CORE SERVICE INITIALIZATION & REFERENCES ] --
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
+local ContentProvider = game:GetService("ContentProvider")
+local MarketService = game:GetService("MarketplaceService")
+local SoundService = game:GetService("SoundService")
+local PathfindingService = game:GetService("PathfindingService")
+local StatsService = game:GetService("Stats")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = nil
+local CurrentCamera = Workspace.CurrentCamera
+
+-- [ SECTION 2: ENVIRONMENT SAFETY & BOOTSTRAP VALIDATION ] --
+local function initializeEnvironment()
+    local success, err = pcall(function()
+        PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 30)
+    end)
+    
+    if not success or not PlayerGui then
+        pcall(function()
+            PlayerGui = CoreGui
+        end)
+    end
+    
+    if not PlayerGui then 
+        warn("[Enterprise Core]: Critical failure initializing PlayerGui context.")
+        return false 
+    end
+    return true
+end
+
+if not initializeEnvironment() then return end
+
+-- [ SECTION 3: GARBAGE COLLECTION & INSTANCE PURGE ] --
+local function purgeOldInstances()
+    pcall(function()
+        for _, child in pairs(PlayerGui:GetChildren()) do
+            if child.Name == "DeadRails_Enterprise_BondHub_v87" then
+                child:Destroy()
+            end
+        end
+        if CoreGui:FindFirstChild("DeadRails_Enterprise_BondHub_v87") then
+            CoreGui.DeadRails_Enterprise_BondHub_v87:Destroy()
+        end
+    end)
+end
+
+purgeOldInstances()
+
+-- [ SECTION 4: CONFIGURATION & STRICT BOND-ONLY STATE MATRIX ] --
+local Configuration = {
+    Version = "8.7-Enterprise-BondOnly-Master",
+    Author = "Yusuf & Enterprise Core Architecture",
+    MaxScanDistance = 50000,
+    CollectionDelay = 0.05,
+    AutoRejoinEnabled = true,
+    BypassDetection = true,
+    -- DİKKAT: Silah, zırh, mühimmat veya genel item kelimeleri KESİNLİKLE YOKTUR.
+    -- Sadece Dead Rails oyunundaki hazine tahvilleri ve para birimleri hedeflenir.
+    TargetKeywords = {
+        "treasurybond",
+        "treasury_bond",
+        "bond",
+        "bonds",
+        "moneybag",
+        "cashpile",
+        "goldbar",
+        "currency"
+    },
+    Theme = {
+        Background = Color3.fromRGB(6, 6, 10),
+        Header = Color3.fromRGB(12, 12, 18),
+        Accent = Color3.fromRGB(243, 156, 18),
+        Success = Color3.fromRGB(46, 204, 113),
+        Danger = Color3.fromRGB(231, 76, 60),
+        Warning = Color3.fromRGB(241, 196, 15),
+        Info = Color3.fromRGB(52, 152, 219),
+        TextPrimary = Color3.fromRGB(255, 255, 255),
+        TextSecondary = Color3.fromRGB(180, 180, 180),
+        ModuleBackground = Color3.fromRGB(10, 10, 15)
+    }
+}
+
+local SessionTelemetry = {
+    TotalCollectedBonds = 0,
+    ActiveBondFarmStatus = false,
+    ErrorsEncountered = 0,
+    StartTime = os.time(),
+    LastExecutionTick = 0,
+    CurrentBondTargetName = "None",
+    ServerHopAttempts = 0,
+    ScanCyclesCompleted = 0,
+    MemoryUsageHistory = {},
+    NetworkPing = 0
+}
+
+-- [ SECTION 5: ADVANCED LOGGING & TELEMETRY SUBSYSTEM ] --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DeadRails_Enterprise_BondHub_v87"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999999
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Configuration.Theme.Background
+MainFrame.Position = UDim2.new(0.5, -210, 0.05, 0)
+MainFrame.Size = UDim2.new(0, 420, 0, 720)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.BorderSizePixel = 0
+
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 16)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Configuration.Theme.Accent
+MainStroke.Thickness = 2
+
+-- [ SECTION 6: HEADER & WINDOW CONTROLS UI ] --
+local TitleBar = Instance.new("Frame")
+TitleBar.Parent = MainFrame
+TitleBar.BackgroundColor3 = Configuration.Theme.Header
+TitleBar.Size = UDim2.new(1, 0, 0, 55)
+TitleBar.BorderSizePixel = 0
+
+local TitleCorner = Instance.new("UICorner", TitleBar)
+TitleCorner.CornerRadius = UDim.new(0, 16)
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Parent = TitleBar
+TitleText.BackgroundTransparency = 1
+TitleText.Position = UDim2.new(0, 15, 0, 0)
+TitleText.Size = UDim2.new(1, -70, 1, 0)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.Text = "🚂 Dead Rails - v8.7 Bond Only Master"
+TitleText.TextColor3 = Configuration.Theme.Accent
+TitleText.TextSize = 12
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Parent = TitleBar
+CloseButton.BackgroundColor3 = Configuration.Theme.Danger
+CloseButton.Position = UDim2.new(1, -45, 0, 14)
+CloseButton.Size = UDim2.new(0, 28, 0, 28)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Configuration.Theme.TextPrimary
+CloseButton.TextSize = 12
+CloseButton.BorderSizePixel = 0
+
+local CloseCorner = Instance.new("UICorner", CloseButton)
+CloseCorner.CornerRadius = UDim.new(1, 0)
+
+-- [ SECTION 7: SCROLLING CONTAINER & LAYOUT MANAGEMENT ] --
+local Container = Instance.new("ScrollingFrame")
+Container.Parent = MainFrame
+Container.Size = UDim2.new(1, -16, 1, -70)
+Container.Position = UDim2.new(0, 8, 0, 62)
+Container.BackgroundTransparency = 1
+Container.CanvasSize = UDim2.new(0, 0, 0, 1150)
+Container.ScrollBarThickness = 4
+Container.ScrollBarImageColor3 = Configuration.Theme.Accent
+
+local UIListLayout = Instance.new("UIListLayout", Container)
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- [ SECTION 8: TELEMETRY DISPLAY PANEL ] --
+local StatusDisplay = Instance.new("TextLabel")
+StatusDisplay.Parent = Container
+StatusDisplay.BackgroundColor3 = Configuration.Theme.ModuleBackground
+StatusDisplay.Size = UDim2.new(0, 388, 0, 110)
+StatusDisplay.Font = Enum.Font.Gotham
+StatusDisplay.Text = "Status: Hazır - Sadece Tahvil (Bond) Taranıyor...\nToplanan Bond: 0\nAktif Hedef: Yok\nTarama Döngüsü: 0 | Süre: 0s\nFiltre Koruma: Aktif (Silahlar Hariç)"
+StatusDisplay.TextColor3 = Configuration.Theme.Success
+StatusDisplay.TextSize = 11
+StatusDisplay.BorderSizePixel = 0
+StatusDisplay.TextWrapped = true
+StatusDisplay.TextXAlignment = Enum.TextXAlignment.Left
+StatusDisplay.TextYAlignment = Enum.TextYAlignment.Center
+
+local StatusPadding = Instance.new("UIPadding", StatusDisplay)
+StatusPadding.PaddingLeft = UDim.new(0, 12)
+StatusPadding.PaddingRight = UDim.new(0, 12)
+
+local StatusCorner = Instance.new("UICorner", StatusDisplay)
+StatusCorner.CornerRadius = UDim.new(0, 8)
+
+local StatusStroke = Instance.new("UIStroke", StatusDisplay)
+StatusStroke.Color = Color3.fromRGB(40, 40, 55)
+StatusStroke.Thickness = 1
+
+-- [ SECTION 9: ADVANCED LOGGING UTILITY ] --
+local function logTelemetry(message, isError)
+    pcall(function()
+        local timestamp = os.date("%H:%M:%S")
+        local uptime = os.time() - SessionTelemetry.StartTime
+        if isError then
+            SessionTelemetry.ErrorsEncountered = SessionTelemetry.ErrorsEncountered + 1
+            StatusDisplay.Text = string.format("[%s] HATA: %s\nToplam Bond: %d | Hatalar: %d", timestamp, tostring(message), SessionTelemetry.TotalCollectedBonds, SessionTelemetry.ErrorsEncountered)
+            StatusDisplay.TextColor3 = Configuration.Theme.Danger
+        else
+            StatusDisplay.Text = string.format("[%s] %s\nToplam Bond: %d | Hedef: %s\nDöngü: %d | Süre: %ds", timestamp, message, SessionTelemetry.TotalCollectedBonds, SessionTelemetry.CurrentBondTargetName, SessionTelemetry.ScanCyclesCompleted, uptime)
+            StatusDisplay.TextColor3 = Configuration.Theme.Success
+        end
+    end)
+end
+
+-- [ SECTION 10: BUTTON FACTORY UTILITY ] --
+local function createEnterpriseButton(caption, defaultBg, activeBg)
+    local btn = Instance.new("TextButton")
+    btn.BackgroundColor3 = defaultBg
+    btn.Size = UDim2.new(0, 388, 0, 46)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = caption
+    btn.TextColor3 = Configuration.Theme.TextPrimary
+    btn.TextSize = 12
+    btn.BorderSizePixel = 0
+    
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0, 8)
+    
+    local stroke = Instance.new("UIStroke", btn)
+    stroke.Color = Color3.fromRGB(60, 60, 80)
+    stroke.Thickness = 1
+    
+    btn.Parent = Container
+    return btn
+end
+
+-- [ SECTION 11: CORE STRICT BOND-ONLY FARMING ENGINE ] --
+local function executeStrictBondFarmCycle()
+    pcall(function()
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+        if not humanoidRootPart then return end
+        
+        SessionTelemetry.ScanCyclesCompleted = SessionTelemetry.ScanCyclesCompleted + 1
+        local closestBondTarget = nil
+        local shortestDistance = Configuration.MaxScanDistance
+        
+        -- Workspace içinde sadece Treasury Bond ve para nesnelerini arayan hassas filtre
+        for _, descendant in pairs(Workspace:GetDescendants()) do
+            if not SessionTelemetry.ActiveBondFarmStatus then break end
+            
+            pcall(function()
+                if descendant and (descendant:IsA("BasePart") or descendant:IsA("Model")) then
+                    local nameLower = descendant.Name:lower()
+                    
+                    -- Ekstra güvenlik: Adında silah veya zırh geçen hiçbir şeye asla bakma!
+                    local isIgnored = nameLower:find("gun") or nameLower:find("rifle") or nameLower:find("pistol") or 
+                                      nameLower:find("sword") or nameLower:find("armor") or nameLower:find("chestplate") or 
+                                      nameLower:find("helmet") or nameLower:find("ammo") or nameLower:find("knife")
+                    
+                    if not isIgnored then
+                        local isValidBond = false
+                        for _, keyword in ipairs(Configuration.TargetKeywords) do
+                            if nameLower:find(keyword) then
+                                isValidBond = true
+                                break
+                            end
+                        end
+                        
+                        if isValidBond then
+                            local targetPos = nil
+                            if descendant:IsA("BasePart") then
+                                targetPos = descendant.Position
+                            elseif descendant:IsA("Model") then
+                                local primary = descendant.PrimaryPart or descendant:FindFirstChildWhichIsA("BasePart")
+                                if primary then targetPos = primary.Position end
+                            end
+                            
+                            if targetPos then
+                                local distance = (targetPos - humanoidRootPart.Position).Magnitude
+                                if distance < shortestDistance then
+                                    shortestDistance = distance
+                                    closestBondTarget = descendant
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+        
+        -- Sadece onaylanmış Bond/Para hedefine ışınlanma ve toplama aşaması
+        if closestBondTarget and SessionTelemetry.ActiveBondFarmStatus then
+            SessionTelemetry.CurrentBondTargetName = closestBondTarget.Name
+            local targetPosition = nil
+            
+            if closestBondTarget:IsA("BasePart") then
+                targetPosition = closestBondTarget.Position
+            elseif closestBondTarget:IsA("Model") then
+                local primary = closestBondTarget.PrimaryPart or closestBondTarget:FindFirstChildWhichIsA("BasePart")
+                if primary then targetPosition = primary.Position end
+            end
+            
+            if targetPosition then
+                -- Güvenli konuma ışınlanma
+                humanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 2.0, 0))
+                task.wait(0.03)
+                
+                -- Proximity Prompt Tetikleyicisi
+                pcall(function()
+                    for _, prompt in pairs(closestBondTarget:GetDescendants()) do
+                        if prompt:IsA("ProximityPrompt") then
+                            prompt.HoldDuration = 0
+                            prompt.MaxActivationDistance = 99999
+                            fireproximityprompt(prompt)
+                        end
+                    end
+                end)
+                
+                -- Touch Transmitter Tetikleyicisi
+                pcall(function()
+                    for _, sub in pairs(closestBondTarget:GetDescendants()) do
+                        if sub:IsA("TouchTransmitter") then
+                            firetouchinterest(humanoidRootPart, sub.Parent, 0)
+                            firetouchinterest(humanoidRootPart, sub.Parent, 1)
+                        end
+                    end
+                end)
+                
+                SessionTelemetry.TotalCollectedBonds = SessionTelemetry.TotalCollectedBonds + 1
+                logTelemetry("Tahvil (Bond) Başarıyla Toplandı!", false)
+                task.wait(Configuration.CollectionDelay)
+            end
+        else
+            SessionTelemetry.CurrentBondTargetName = "Tahvil Aranıyor..."
+            task.wait(0.3)
+        end
+    end)
+end
+
+-- [ SECTION 12: UI CONTROLS & FEATURE MODULES ] --
+
+-- Module 1: Strict Bond Farm Control Button
+local FarmButton = createEnterpriseButton("💰 Sadece Tahvil (Bond) Farmını Başlat", Color3.fromRGB(211, 84, 0), Configuration.Theme.Success)
+FarmButton.MouseButton1Click:Connect(function()
+    SessionTelemetry.ActiveBondFarmStatus = not SessionTelemetry.ActiveBondFarmStatus
+    
+    if SessionTelemetry.ActiveBondFarmStatus then
+        FarmButton.Text = "⏹️ Tahvil Farmını Durdur"
+        FarmButton.BackgroundColor3 = Configuration.Theme.Danger
+        logTelemetry("Tahvil (Bond) Motoru Aktifleştirildi.", false)
+    else
+        FarmButton.Text = "💰 Sadece Tahvil (Bond) Farmını Başlat"
+        FarmButton.BackgroundColor3 = Color3.fromRGB(211, 84, 0)
+        logTelemetry("Tahvil (Bond) Motoru Durduruldu.", true)
+    end
+    
+    task.spawn(function()
+        while SessionTelemetry.ActiveBondFarmStatus do
+            executeStrictBondFarmCycle()
+            task.wait(0.1)
+        end
+    end)
+end)
+
+-- Module 2: Bond-Only Visual ESP Subsystem
+local espActive = false
+local EspButton = createEnterpriseButton("👁️ Tahvil (Bond) Visual ESP: KAPALI", Color3.fromRGB(142, 68, 173), Configuration.Theme.Success)
+EspButton.MouseButton1Click:Connect(function()
+    espActive = not espActive
+    if espActive then
+        EspButton.Text = "👁️ Tahvil (Bond) Visual ESP: AÇIK ✅"
+        EspButton.BackgroundColor3 = Configuration.Theme.Success
+        logTelemetry("Tahvil ESP Subsystem Aktif.", false)
+    else
+        EspButton.Text = "👁️ Tahvil (Bond) Visual ESP: KAPALI"
+        EspButton.BackgroundColor3 = Color3.fromRGB(142, 68, 173)
+        logTelemetry("Tahvil ESP Subsystem Kapatıldı.", true)
+    end
+    
+    task.spawn(function()
+        while espActive do
+            pcall(function()
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if not espActive then break end
+                    if obj and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                        local n = obj.Name:lower()
+                        local isIgnored = n:find("gun") or n:find("armor") or n:find("sword") or n:find("helmet")
+                        if not isIgnored then
+                            local isMatch = false
+                            for _, kw in ipairs(Configuration.TargetKeywords) do
+                                if n:find(kw) then isMatch = true break end
+                            end
+                            
+                            if isMatch then
+                                if not obj:FindFirstChild("EnterpriseBondHighlight") then
+                                    local hl = Instance.new("Highlight")
+                                    hl.Name = "EnterpriseBondHighlight"
+                                    hl.Adornee = obj
+                                    hl.Parent = obj
+                                    hl.FillColor = Configuration.Theme.Accent
+                                    hl.OutlineColor = Configuration.Theme.TextPrimary
+                                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            task.wait(2)
+        end
+        
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            pcall(function()
+                local hl = obj:FindFirstChild("EnterpriseBondHighlight")
+                if hl then hl:Destroy() end
+            end)
+        end
+    end)
+end)
+
+-- Module 3: Character Velocity & WalkSpeed Modifier
+local speedActive = false
+local SpeedButton = createEnterpriseButton("⚡ Karakter Hızı (WalkSpeed): KAPALI", Color3.fromRGB(41, 128, 185), Configuration.Theme.Success)
+SpeedButton.MouseButton1Click:Connect(function()
+    speedActive = not speedActive
+    if speedActive then
+        SpeedButton.Text = "⚡ Karakter Hızı (WalkSpeed): AÇIK ✅ (28)"
+        SpeedButton.BackgroundColor3 = Configuration.Theme.Success
+        logTelemetry("WalkSpeed Modifiyer Aktif (28).", false)
+    else
+        SpeedButton.Text = "⚡ Karakter Hızı (WalkSpeed): KAPALI"
+        SpeedButton.BackgroundColor3 = Color3.fromRGB(41, 128, 185)
+        logTelemetry("WalkSpeed Modifiyer Kapatıldı.", true)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if speedActive then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChild("Humanoid")
+                if hum then hum.WalkSpeed = 28 end
+            end
+        end)
+    end
+end)
+
+-- Module 4: Environment Lighting Enhancer (Fullbright)
+local fullbrightActive = false
+local FullbrightButton = createEnterpriseButton("☀️ Fullbright Aydınlatma: KAPALI", Color3.fromRGB(52, 73, 94), Configuration.Theme.Success)
+FullbrightButton.MouseButton1Click:Connect(function()
+    fullbrightActive = not fullbrightActive
+    if fullbrightActive then
+        FullbrightButton.Text = "☀️ Fullbright Aydınlatma: AÇIK ✅"
+        FullbrightButton.BackgroundColor3 = Configuration.Theme.Success
+        logTelemetry("Fullbright Aydınlatma Aktif.", false)
+    else
+        FullbrightButton.Text = "☀️ Fullbright Aydınlatma: KAPALI"
+        FullbrightButton.BackgroundColor3 = Color3.fromRGB(52, 73, 94)
+        logTelemetry("Fullbright Aydınlatma Kapatıldı.", true)
+    end
+    
+    task.spawn(function()
+        while fullbrightActive do
+            pcall(function()
+                Lighting.Brightness = 2.5
+                Lighting.ClockTime = 14
+                Lighting.GlobalShadows = false
+                Lighting.FogEnd = 300000
+            end)
+            task.wait(1)
+        end
+        pcall(function()
+            Lighting.GlobalShadows = true
+            Lighting.Brightness = 1
+        end)
+    end)
+end)
+
+-- Module 5: Anti-AFK Subsystem Integration
+local antiAfkActive = false
+local AntiAfkButton = createEnterpriseButton("🛡️ Anti-AFK Koruyucu: KAPALI", Color3.fromRGB(39, 174, 96), Configuration.Theme.Success)
+AntiAfkButton.MouseButton1Click:Connect(function()
+    antiAfkActive = not antiAfkActive
+    if antiAfkActive then
+        AntiAfkButton.Text = "🛡️ Anti-AFK Koruyucu: AÇIK ✅"
+        AntiAfkButton.BackgroundColor3 = Configuration.Theme.Success
+        logTelemetry("Anti-AFK Koruyucu Aktif.", false)
+    else
+        AntiAfkButton.Text = "🛡️ Anti-AFK Koruyucu: KAPALI"
+        AntiAfkButton.BackgroundColor3 = Color3.fromRGB(39, 174, 96)
+        logTelemetry("Anti-AFK Koruyucu Kapatıldı.", true)
+    end
+end)
+
+local vu = game:GetService("VirtualUser")
+LocalPlayer.Idled:Connect(function()
+    if antiAfkActive then
+        pcall(function()
+            vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            logTelemetry("Anti-AFK Tetiklendi.", false)
+        end)
+    end
+end)
+
+-- Module 6: Noclip Subsystem
+local noclipActive = false
+local NoclipButton = createEnterpriseButton("👻 Noclip Çarpışma Bypass: KAPALI", Color3.fromRGB(127, 140, 141), Configuration.Theme.Success)
+NoclipButton.MouseButton1Click:Connect(function()
+    noclipActive = not noclipActive
+    if noclipActive then
+        NoclipButton.Text = "👻 Noclip Çarpışma Bypass: AÇIK ✅"
+        NoclipButton.BackgroundColor3 = Configuration.Theme.Success
+        logTelemetry("Noclip Bypass Aktif.", false)
+    else
+        NoclipButton.Text = "👻 Noclip Çarpışma Bypass: KAPALI"
+        NoclipButton.BackgroundColor3 = Color3.fromRGB(127, 140, 141)
+        logTelemetry("Noclip Bypass Kapatıldı.", true)
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if noclipActive then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- Module 7: Infinite Jump Subsystem
+local infJumpActive = false
+local InfJumpButton = createEnterpriseButton("🦘 Infinite Jump (Sınırsız Zıplama): KAPALI", Color3.fromRGB(22, 160, 133), Configuration.Theme.Success)
+InfJumpButton.MouseButton1Click:Connect(function()
+    infJumpActive = not infJumpActive
+    if infJumpActive then
+        InfJumpButton.Text = "🦘 Infinite Jump: AÇIK ✅"
+        InfJumpButton.BackgroundColor3 = Configuration.Theme.Success
+        logTelemetry("Infinite Jump Aktif.", false)
+    else
+        InfJumpButton.Text = "🦘 Infinite Jump: KAPALI"
+        InfJumpButton.BackgroundColor3 = Color3.fromRGB(22, 160, 133)
+        logTelemetry("Infinite Jump Kapatıldı.", true)
+    end
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if infJumpActive then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end
+        end)
+    end
+end)
+
+-- Module 8: FOV Modifier Subsystem
+local fovActive = false
+local FovButton = createEnterpriseButton("🔭 Kamera FOV (110): KAPALI", Color3.fromRGB(149, 165, 166), Configuration.Theme.Success)
+FovButton.MouseButton1Click:Connect(function()
+    fovActive = not fovActive
+    if fovActive then
+        FovButton.Text = "🔭 Kamera FOV (110): AÇIK ✅"
+        FovButton.BackgroundColor3 = Configuration.Theme.Success
+        logTelemetry("FOV Modifier Aktif (110).", false)
+    else
+        FovButton.Text = "🔭 Kamera FOV (110): KAPALI"
+        FovButton.BackgroundColor3 = Color3.fromRGB(149, 165, 166)
+        logTelemetry("FOV Modifier Kapatıldı.", true)
+        pcall(function() CurrentCamera.FieldOfView = 70 end)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if fovActive then
+        pcall(function() CurrentCamera.FieldOfView = 110 end)
+    end
+end)
+
+-- Module 9: Instant Server Hop Utility
+local ServerHopButton = createEnterpriseButton("🔄 Anında Sunucu Değiştir (Server Hop)", Color3.fromRGB(192, 57, 43), Configuration.Theme.Accent)
+ServerHopButton.MouseButton1Click:Connect(function()
+    logTelemetry("Sunucu değiştirme başlatılıyor...", false)
+    pcall(function()
+        local servers = {}
+        local req = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+        if req and req.data then
+            for _, s in pairs(req.data) do
+                if type(s) == "table" and s.playing < s.maxPlayers and s.id ~= game.JobId then
+                    table.insert(servers, s.id)
+                end
+            end
+        end
+        if #servers > 0 then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)], LocalPlayer)
+        else
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end
+    end)
+end)
+
+-- [ SECTION 13: WINDOW MINIMIZE & RESTORE TOGGLE SYSTEM ] --
+local OpenButton = Instance.new("TextButton")
+OpenButton.Parent = ScreenGui
+OpenButton.BackgroundColor3 = Configuration.Theme.Background
+OpenButton.Position = UDim2.new(0.05, 0, 0.05, 0)
+OpenButton.Size = UDim2.new(0, 48, 0, 48)
+OpenButton.Font = Enum.Font.GothamBold
+OpenButton.Text = "🚂"
+OpenButton.TextColor3 = Configuration.Theme.Accent
+OpenButton.TextSize = 20
+OpenButton.Visible = false
+OpenButton.Active = true
+OpenButton.Draggable = true
+
+local OpenCorner = Instance.new("UICorner", OpenButton)
+OpenCorner.CornerRadius = UDim.new(1, 0)
+
+local OpenStroke = Instance.new("UIStroke", OpenButton)
+OpenStroke.Color = Configuration.Theme.Accent
+OpenStroke.Thickness = 2
+
+CloseButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenButton.Visible = true
+end)
+
+OpenButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    OpenButton.Visible = false
+end)
+
+-- [ SECTION 14: SYSTEM INITIALIZATION & DIAGNOSTIC VERIFICATION ] --
+print("=====================================================================")
+print("[Enterprise Core]: Dead Rails Framework v8.7 Bond-Only Successfully Initialized.")
+print("[Enterprise Core]: All Subsystems Loaded. Weapons/Armor Filtering Active.")
+print("=====================================================================")
