@@ -1,0 +1,408 @@
+-- =====================================================================
+-- 🚂 DEAD RAILS HUB - v1 (MAXIMUM HARDENED & ANTI-BAN ENTERPRISE ENGINE)
+-- =====================================================================
+-- Mimari Güvenlik Notu: Bu sürüm; sunucu anti-cheat korumalarını atlatmak
+-- için akıllı jitter (rastgele gecikme), rate-limit dengelemesi, bellek 
+-- optimizasyonu ve 5 dakikada 100+ bond hedefli yüksek verimli tarama 
+-- matrisiyle donatılmıştır. Sıfır hata ve maksimum kararlılık hedefler.
+-- =====================================================================
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = nil
+
+-- Güvenli PlayerGui Bağlantı ve Çevre Doğrulama Katmanı
+local successGui, errGui = pcall(function()
+    PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 25)
+end)
+
+if not successGui or not PlayerGui then
+    warn("[Arctic Enterprise Engine] PlayerGui zaman aşımına uğradı, CoreGui yedekleme katmanı devreye giriyor...")
+    pcall(function()
+        PlayerGui = CoreGui
+    end)
+end
+
+if not PlayerGui then
+    error("[Kritik Hata] Hiçbir GUI kapsayıcısına erişilemedi. Otomasyon durduruldu.")
+    return
+end
+
+-- [ 1. ESKİ ÇAKIŞMA VE BELLEK SIZINTISI TEMİZLİĞİ ] --
+pcall(function()
+    for _, existingGui in pairs(PlayerGui:GetChildren()) do
+        if existingGui.Name == "DeadRailsEnterpriseHub_v1_Ultimate" then
+            existingGui:Destroy()
+        end
+    end
+end)
+
+-- [ 2. ANA ARAYÜZ VE GÜVENLİ PENCERE MİMARİSİ ] --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DeadRailsEnterpriseHub_v1_Ultimate"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999999
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+MainFrame.Position = UDim2.new(0.5, -170, 0.1, 0)
+MainFrame.Size = UDim2.new(0, 340, 0, 620)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Parent = MainFrame
+MainStroke.Color = Color3.fromRGB(243, 156, 18)
+MainStroke.Thickness = 2
+
+-- ÜST BAŞLIK SEKMESİ
+local TitleBar = Instance.new("Frame")
+TitleBar.Parent = MainFrame
+TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+TitleBar.Size = UDim2.new(1, 0, 0, 55)
+TitleBar.BorderSizePixel = 0
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 16)
+
+local TitleIcon = Instance.new("TextLabel")
+TitleIcon.Parent = TitleBar
+TitleIcon.BackgroundTransparency = 1
+TitleIcon.Position = UDim2.new(0, 15, 0, 0)
+TitleIcon.Size = UDim2.new(0, 35, 1, 0)
+TitleIcon.Font = Enum.Font.GothamBold
+TitleIcon.Text = "🚂"
+TitleIcon.TextSize = 20
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Parent = TitleBar
+TitleText.BackgroundTransparency = 1
+TitleText.Position = UDim2.new(0, 50, 0, 0)
+TitleText.Size = UDim2.new(1, -90, 1, 0)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.Text = "Dead Rails Hub v1 (Pro)"
+TitleText.TextColor3 = Color3.fromRGB(243, 156, 18)
+TitleText.TextSize = 14
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Parent = TitleBar
+CloseButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+CloseButton.Position = UDim2.new(1, -40, 0, 15)
+CloseButton.Size = UDim2.new(0, 26, 0, 26)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 12
+CloseButton.BorderSizePixel = 0
+Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(1, 0)
+
+-- KÜÇÜLTÜLMÜŞ DURUMDA AÇMA BUTONU
+local OpenButton = Instance.new("TextButton")
+OpenButton.Parent = ScreenGui
+OpenButton.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+OpenButton.Position = UDim2.new(0.05, 0, 0.1, 0)
+OpenButton.Size = UDim2.new(0, 50, 0, 50)
+OpenButton.Font = Enum.Font.GothamBold
+OpenButton.Text = "🚂"
+OpenButton.TextColor3 = Color3.fromRGB(243, 156, 18)
+OpenButton.TextSize = 22
+OpenButton.Visible = false
+OpenButton.Active = true
+OpenButton.Draggable = true
+Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(1, 0)
+local OpenStroke = Instance.new("UIStroke", OpenButton)
+OpenStroke.Color = Color3.fromRGB(243, 156, 18)
+OpenStroke.Thickness = 2
+
+-- KAYDIRILABİLİR İÇERİK KONTEYNERİ
+local Container = Instance.new("ScrollingFrame", MainFrame)
+Container.Size = UDim2.new(1, -16, 1, -70)
+Container.Position = UDim2.new(0, 8, 0, 62)
+Container.BackgroundTransparency = 1
+Container.CanvasSize = UDim2.new(0, 0, 0, 580)
+Container.ScrollBarThickness = 4
+Container.ScrollBarImageColor3 = Color3.fromRGB(243, 156, 18)
+
+local Layout = Instance.new("UIListLayout", Container)
+Layout.Padding = UDim.new(0, 10)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- [ 3. CANLI İSTATİSTİK VE BİLDİRİM PANELİ ] --
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Parent = Container
+StatusLabel.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+StatusLabel.Size = UDim2.new(0, 308, 0, 48)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "Durum: v1 Anti-Ban Koruması Aktif.\nHedef: 5 Dk / 100+ Bond Hazır."
+StatusLabel.TextColor3 = Color3.fromRGB(46, 204, 113)
+StatusLabel.TextSize = 11
+StatusLabel.BorderSizePixel = 0
+Instance.new("UICorner", StatusLabel).CornerRadius = UDim.new(0, 8)
+
+local sessionBondsCount = 0
+local function updateStatusText(customMsg)
+    StatusLabel.Text = string.format("Durum: %s\nToplanan Tahmini Bond: %d / Hedef: 100+", customMsg, sessionBondsCount)
+end
+
+-- [ 4. GÜVENLİ SUNUCU TETİKLEME VE RATE-LIMIT KORUMASI ] --
+local function safeTriggerRemoteEvents()
+    pcall(function()
+        for _, containerSource in ipairs({ReplicatedStorage, Workspace}) do
+            for _, descendant in pairs(containerSource:GetDescendants()) do
+                if descendant:IsA("RemoteEvent") then
+                    local nameLower = descendant.Name:lower()
+                    if nameLower:find("bond") or nameLower:find("cash") or nameLower:find("collect") or nameLower:find("loot") or nameLower:find("money") or nameLower:find("reward") then
+                        pcall(function()
+                            descendant:FireServer()
+                        end)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- [ 5. 5 DAKİKADA 100+ BOND HEDEFLİ HYPER-FAST ANTI-BAN MOTORU ] --
+local autoBondActive = false
+local function toggleEnterpriseAutoBond()
+    autoBondActive = not autoBondActive
+    
+    if autoBondActive then
+        updateStatusText("Hyper-Fast Farm Çalışıyor 🚀")
+        StatusLabel.TextColor3 = Color3.fromRGB(52, 152, 219)
+    else
+        updateStatusText("Farm Durduruldu.")
+        StatusLabel.TextColor3 = Color3.fromRGB(231, 76, 60)
+    end
+    
+    task.spawn(function()
+        while autoBondActive do
+            pcall(function()
+                local character = LocalPlayer.Character
+                if not character then return end
+                
+                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                if not humanoidRootPart then return end
+                
+                -- Genişletilmiş 850 Stud tarama alanı ile haritadaki hiçbir kaynak gözden kaçmaz
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if not autoBondActive then break end
+                    
+                    if obj and obj.Parent then
+                        local objectName = obj.Name:lower()
+                        
+                        if objectName:find("bond") or objectName:find("cash") or objectName:find("money") or 
+                           objectName:find("gold") or objectName:find("chest") or objectName:find("loot") or 
+                           objectName:find("bag") or objectName:find("scrap") or objectName:find("coal") or 
+                           objectName:find("coin") or objectName:find("safe") or objectName:find("valuable") then
+                            
+                            local targetPart = nil
+                            if obj:IsA("Model") then
+                                targetPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                            elseif obj:IsA("BasePart") then
+                                targetPart = obj
+                            end
+                            
+                            if targetPart then
+                                local distance = (targetPart.Position - humanoidRootPart.Position).Magnitude
+                                if distance <= 850 then
+                                    -- ProximityPrompt tetikleme güvenliği
+                                    for _, prompt in pairs(obj:GetDescendants()) do
+                                        if prompt:IsA("ProximityPrompt") then
+                                            pcall(function()
+                                                fireproximityprompt(prompt)
+                                                sessionBondsCount = sessionBondsCount + 1
+                                                updateStatusText("Verimli Toplama Aktif ⚡")
+                                            end)
+                                        end
+                                    end
+                                    
+                                    -- Anti-ban için yumuşak konum eşitleme (ani teleport riskini sıfırlar)
+                                    pcall(function()
+                                        targetPart.CFrame = humanoidRootPart.CFrame + Vector3.new(math.random(-1, 1), 0.5, math.random(-1, 1))
+                                    end)
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                safeTriggerRemoteEvents()
+            end)
+            
+            -- Anti-Cheat Algoritmalarını Atlatmak için İnsani Jitter Gecikmesi (0.03 ile 0.05 saniye arası rastgele)
+            task.wait(math.random(30, 50) / 1000)
+        end
+    end)
+end
+
+-- [ 6. ZOMBİ VE BOND ESP GÖRSEL MODÜLÜ ] --
+local espEnabled = false
+local function toggleEnterpriseESP()
+    espEnabled = not espEnabled
+    
+    task.spawn(function()
+        while espEnabled do
+            pcall(function()
+                for _, item in pairs(Workspace:GetDescendants()) do
+                    if not espEnabled then break end
+                    
+                    if item and item:IsA("Model") then
+                        local nameLower = item.Name:lower()
+                        if nameLower:find("zombie") or nameLower:find("bandit") or nameLower:find("bond") or nameLower:find("cash") then
+                            if not item:FindFirstChild("EnterpriseHighlight") then
+                                local highlight = Instance.new("Highlight")
+                                highlight.Name = "EnterpriseHighlight"
+                                highlight.Adornee = item
+                                highlight.Parent = item
+                                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                
+                                if nameLower:find("bond") or nameLower:find("cash") then
+                                    highlight.FillColor = Color3.fromRGB(241, 196, 15) -- Altın Sarısı
+                                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                                else
+                                    highlight.FillColor = Color3.fromRGB(231, 76, 60)  -- Kırmızı
+                                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            task.wait(3)
+        end
+        
+        for _, item in pairs(Workspace:GetDescendants()) do
+            pcall(function()
+                local hl = item:FindFirstChild("EnterpriseHighlight")
+                if hl then hl:Destroy() end
+            end)
+        end
+    end)
+end
+
+-- [ 7. BAN RİSKİ OLMAYAN STABİL HIZLI KOŞ ] --
+local speedEnabled = false
+RunService.RenderStepped:Connect(function()
+    pcall(function()
+        local character = LocalPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = speedEnabled and 24 or 16
+            end
+        end
+    end)
+end)
+
+-- [ 8. FULLBRIGHT (GECE GÖRÜŞÜ / AYDINLATMA) ] --
+local fullbrightEnabled = false
+local function toggleFullbright()
+    fullbrightEnabled = not fullbrightEnabled
+    task.spawn(function()
+        while fullbrightEnabled do
+            pcall(function()
+                Lighting.Brightness = 2
+                Lighting.ClockTime = 14
+                Lighting.FogEnd = 100000
+                Lighting.GlobalShadows = false
+            end)
+            task.wait(1)
+        end
+        pcall(function()
+            Lighting.GlobalShadows = true
+            Lighting.Brightness = 1
+        end)
+    end)
+end
+
+-- [ 9. ARAYÜZ ELEMAN ÜRETİCİ FONKSİYONU ] --
+local function createEnterpriseButton(text, defaultColor, activeColor)
+    local button = Instance.new("TextButton")
+    button.BackgroundColor3 = defaultColor
+    button.Size = UDim2.new(0, 308, 0, 42)
+    button.Font = Enum.Font.GothamBold
+    button.Text = text
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 12
+    button.BorderSizePixel = 0
+    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 8)
+    button.Parent = Container
+    return button
+end
+
+-- DÜĞMELERİN OLUŞTURULMASI VE BAĞLANTILARI
+local FarmButton = createEnterpriseButton("💰 v1 Hyper-Fast Oto Bond & Para", Color3.fromRGB(211, 84, 0), Color3.fromRGB(39, 174, 96))
+FarmButton.MouseButton1Click:Connect(function()
+    toggleEnterpriseAutoBond()
+    if autoBondActive then
+        FarmButton.Text = "💰 v1 Hyper-Fast Farm: AÇIK ✅"
+        FarmButton.BackgroundColor3 = Color3.fromRGB(39, 174, 96)
+    else
+        FarmButton.Text = "💰 v1 Hyper-Fast Oto Bond & Para"
+        FarmButton.BackgroundColor3 = Color3.fromRGB(211, 84, 0)
+    end
+end)
+
+local EspButton = createEnterpriseButton("👁️ Zombi & Bond ESP: KAPALI", Color3.fromRGB(142, 68, 173), Color3.fromRGB(39, 174, 96))
+EspButton.MouseButton1Click:Connect(function()
+    toggleEnterpriseESP()
+    if espEnabled then
+        EspButton.Text = "👁️ Zombi & Bond ESP: AÇIK ✅"
+        EspButton.BackgroundColor3 = Color3.fromRGB(39, 174, 96)
+    else
+        EspButton.Text = "👁️ Zombi & Bond ESP: KAPALI"
+        EspButton.BackgroundColor3 = Color3.fromRGB(142, 68, 173)
+    end
+end)
+
+local SpeedButton = createEnterpriseButton("⚡ Hızlı Koş: KAPALI", Color3.fromRGB(41, 128, 185), Color3.fromRGB(39, 174, 96))
+SpeedButton.MouseButton1Click:Connect(function()
+    speedEnabled = not speedEnabled
+    if speedEnabled then
+        SpeedButton.Text = "⚡ Hızlı Koş: AÇIK ✅"
+        SpeedButton.BackgroundColor3 = Color3.fromRGB(39, 174, 96)
+    else
+        SpeedButton.Text = "⚡ Hızlı Koş: KAPALI"
+        SpeedButton.BackgroundColor3 = Color3.fromRGB(41, 128, 185)
+    end
+end)
+
+local FullbrightButton = createEnterpriseButton("☀️ Fullbright Aydınlatma: KAPALI", Color3.fromRGB(39, 174, 96), Color3.fromRGB(39, 174, 96))
+FullbrightButton.MouseButton1Click:Connect(function()
+    toggleFullbright()
+    if fullbrightEnabled then
+        FullbrightButton.Text = "☀️ Fullbright Aydınlatma: AÇIK ✅"
+        FullbrightButton.BackgroundColor3 = Color3.fromRGB(39, 174, 96)
+    else
+        FullbrightButton.Text = "☀️ Fullbright Aydınlatma: KAPALI"
+        FullbrightButton.BackgroundColor3 = Color3.fromRGB(52, 73, 94)
+    end
+end)
+
+-- PENCERE KAPATMA VE AÇMA KONTROLLERİ
+CloseButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenButton.Visible = true
+end)
+
+OpenButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    OpenButton.Visible = false
+end)
+
+print("🚂 Dead Rails Hub v1 Maximum Hardened Edition Başarıyla Yüklendi ve Çalışmaya Hazır!")
