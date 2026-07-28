@@ -1,0 +1,352 @@
+-- =====================================================================
+-- 🚂 DEAD RAILS - ULTIMATE TREASURY BOND ENTERPRISE FRAMEWORK (v8.9 FINAL)
+-- =====================================================================
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 30) or CoreGui
+
+-- Eski arayüzleri temizle
+pcall(function()
+    for _, child in pairs(PlayerGui:GetChildren()) do
+        if child.Name == "DeadRails_Enterprise_BondHub_v89" then child:Destroy() end
+    end
+    if CoreGui:FindFirstChild("DeadRails_Enterprise_BondHub_v89") then
+        CoreGui.DeadRails_Enterprise_BondHub_v89:Destroy()
+    end
+end)
+
+local Configuration = {
+    Version = "8.9-Enterprise-TreasuryBondOnly-Final",
+    MaxScanDistance = 100000,
+    CollectionDelay = 0.02,
+    -- KESİNLİKLE SADECE TAHVİL (BOND) KELİMELERİ ARANACAK
+    TargetKeywords = {
+        "bond",
+        "tahvil",
+        "treasurybond",
+        "treasury_bond"
+    }
+}
+
+local SessionTelemetry = {
+    TotalCollectedBonds = 0,
+    ActiveBondFarmStatus = false,
+    ErrorsEncountered = 0,
+    StartTime = os.time(),
+    CurrentBondTargetName = "None",
+    ScanCyclesCompleted = 0
+}
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DeadRails_Enterprise_BondHub_v89"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999999
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(6, 6, 10)
+MainFrame.Position = UDim2.new(0.5, -210, 0.05, 0)
+MainFrame.Size = UDim2.new(0, 420, 0, 600)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 16)
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Color3.fromRGB(243, 156, 18)
+MainStroke.Thickness = 2
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Parent = MainFrame
+TitleBar.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
+TitleBar.Size = UDim2.new(1, 0, 0, 55)
+TitleBar.BorderSizePixel = 0
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 16)
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Parent = TitleBar
+TitleText.BackgroundTransparency = 1
+TitleText.Position = UDim2.new(0, 15, 0, 0)
+TitleText.Size = UDim2.new(1, -70, 1, 0)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.Text = "🚂 Dead Rails - v8.9 Treasury Bond Master"
+TitleText.TextColor3 = Color3.fromRGB(243, 156, 18)
+TitleText.TextSize = 12
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+local CloseButton = Instance.new("TextButton")
+CloseButton.Parent = TitleBar
+CloseButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+CloseButton.Position = UDim2.new(1, -45, 0, 14)
+CloseButton.Size = UDim2.new(0, 28, 0, 28)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextSize = 12
+CloseButton.BorderSizePixel = 0
+Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(1, 0)
+
+local Container = Instance.new("ScrollingFrame")
+Container.Parent = MainFrame
+Container.Size = UDim2.new(1, -16, 1, -70)
+Container.Position = UDim2.new(0, 8, 0, 62)
+Container.BackgroundTransparency = 1
+Container.CanvasSize = UDim2.new(0, 0, 0, 800)
+Container.ScrollBarThickness = 4
+
+local UIListLayout = Instance.new("UIListLayout", Container)
+UIListLayout.Padding = UDim.new(0, 10)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local StatusDisplay = Instance.new("TextLabel")
+StatusDisplay.Parent = Container
+StatusDisplay.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+StatusDisplay.Size = UDim2.new(0, 388, 0, 110)
+StatusDisplay.Font = Enum.Font.Gotham
+StatusDisplay.Text = "Status: Hazır - Sadece Treasury Bond Taranıyor...\nToplanan Bond: 0\nAktif Hedef: Yok"
+StatusDisplay.TextColor3 = Color3.fromRGB(46, 204, 113)
+StatusDisplay.TextSize = 11
+StatusDisplay.BorderSizePixel = 0
+StatusDisplay.TextWrapped = true
+StatusDisplay.TextXAlignment = Enum.TextXAlignment.Left
+StatusDisplay.TextYAlignment = Enum.TextYAlignment.Center
+Instance.new("UICorner", StatusDisplay).CornerRadius = UDim.new(0, 8)
+local StatusStroke = Instance.new("UIStroke", StatusDisplay)
+StatusStroke.Color = Color3.fromRGB(40, 40, 55)
+
+local function logTelemetry(msg, isErr)
+    pcall(function()
+        local t = os.date("%H:%M:%S")
+        if isErr then
+            StatusDisplay.Text = string.format("[%s] HATA: %s\nToplam Bond: %d", t, tostring(msg), SessionTelemetry.TotalCollectedBonds)
+            StatusDisplay.TextColor3 = Color3.fromRGB(231, 76, 60)
+        else
+            StatusDisplay.Text = string.format("[%s] %s\nToplam Bond: %d | Hedef: %s\nDöngü: %d", t, msg, SessionTelemetry.TotalCollectedBonds, SessionTelemetry.CurrentBondTargetName, SessionTelemetry.ScanCyclesCompleted)
+            StatusDisplay.TextColor3 = Color3.fromRGB(46, 204, 113)
+        end
+    end)
+end
+
+local function createBtn(text, color)
+    local btn = Instance.new("TextButton")
+    btn.BackgroundColor3 = color
+    btn.Size = UDim2.new(0, 388, 0, 46)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 12
+    btn.BorderSizePixel = 0
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    btn.Parent = Container
+    return btn
+end
+
+-- Farm Butonu
+local FarmButton = createBtn("💰 Treasury Bond Farmını Başlat", Color3.fromRGB(211, 84, 0))
+FarmButton.MouseButton1Click:Connect(function()
+    SessionTelemetry.ActiveBondFarmStatus = not SessionTelemetry.ActiveBondFarmStatus
+    if SessionTelemetry.ActiveBondFarmStatus then
+        FarmButton.Text = "⏹️ Bond Farmını Durdur"
+        FarmButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+        logTelemetry("Treasury Bond Toplama Aktif!", false)
+    else
+        FarmButton.Text = "💰 Treasury Bond Farmını Başlat"
+        FarmButton.BackgroundColor3 = Color3.fromRGB(211, 84, 0)
+        logTelemetry("Durduruldu.", true)
+    end
+    
+    task.spawn(function()
+        while SessionTelemetry.ActiveBondFarmStatus do
+            pcall(function()
+                local char = LocalPlayer.Character
+                if not char then return end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                
+                SessionTelemetry.ScanCyclesCompleted = SessionTelemetry.ScanCyclesCompleted + 1
+                local bestTarget = nil
+                local minDist = 999999
+                
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if not SessionTelemetry.ActiveBondFarmStatus then break end
+                    pcall(function()
+                        if obj and (obj:IsA("BasePart") or obj:IsA("Model")) then
+                            local nameLower = obj.Name:lower()
+                            
+                            -- KESİN FİLTRE: Zırh, silah, altın, para ASLA HEDEF ALINMAZ
+                            local ignored = nameLower:find("armor") or nameLower:find("chestplate") or nameLower:find("helmet") or 
+                                            nameLower:find("gold") or nameLower:find("cash") or nameLower:find("money") or 
+                                            nameLower:find("gun") or nameLower:find("rifle") or nameLower:find("ammo")
+                            
+                            if not ignored then
+                                local isBond = false
+                                for _, kw in ipairs(Configuration.TargetKeywords) do
+                                    if nameLower:find(kw) then
+                                        isBond = true
+                                        break
+                                    end
+                                end
+                                
+                                if isBond then
+                                    local pos = nil
+                                    if obj:IsA("BasePart") then
+                                        pos = obj.Position
+                                    elseif obj:IsA("Model") then
+                                        local p = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                                        if p then pos = p.Position end
+                                    end
+                                    
+                                    if pos then
+                                        local dist = (pos - hrp.Position).Magnitude
+                                        if dist < minDist then
+                                            minDist = dist
+                                            bestTarget = obj
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                end
+                
+                if bestTarget and SessionTelemetry.ActiveBondFarmStatus then
+                    SessionTelemetry.CurrentBondTargetName = bestTarget.Name
+                    local targetPos = nil
+                    if bestTarget:IsA("BasePart") then
+                        targetPos = bestTarget.Position
+                    elseif bestTarget:IsA("Model") then
+                        local p = bestTarget.PrimaryPart or bestTarget:FindFirstChildWhichIsA("BasePart")
+                        if p then targetPos = p.Position end
+                    end
+                    
+                    if targetPos then
+                        hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 1.5, 0))
+                        task.wait(0.02)
+                        
+                        pcall(function()
+                            for _, prompt in pairs(bestTarget:GetDescendants()) do
+                                if prompt:IsA("ProximityPrompt") then
+                                    prompt.HoldDuration = 0
+                                    prompt.MaxActivationDistance = 99999
+                                    fireproximityprompt(prompt)
+                                end
+                            end
+                        end)
+                        
+                        pcall(function()
+                            for _, cd in pairs(bestTarget:GetDescendants()) do
+                                if cd:IsA("ClickDetector") then
+                                    fireclickdetector(cd)
+                                end
+                            end
+                        end)
+                        
+                        pcall(function()
+                            for _, sub in pairs(bestTarget:GetDescendants()) do
+                                if sub:IsA("TouchTransmitter") then
+                                    firetouchinterest(hrp, sub.Parent, 0)
+                                    firetouchinterest(hrp, sub.Parent, 1)
+                                end
+                            end
+                        end)
+                        
+                        SessionTelemetry.TotalCollectedBonds = SessionTelemetry.TotalCollectedBonds + 1
+                        logTelemetry("Treasury Bond Başarıyla Toplandı!", false)
+                        task.wait(0.05)
+                    end
+                else
+                    SessionTelemetry.CurrentBondTargetName = "Bond Bekleniyor..."
+                    task.wait(0.2)
+                end
+            end)
+            task.wait(0.05)
+        end
+    end)
+end)
+
+-- ESP Butonu
+local espActive = false
+local EspButton = createBtn("👁️ Treasury Bond ESP: KAPALI", Color3.fromRGB(142, 68, 173))
+EspButton.MouseButton1Click:Connect(function()
+    espActive = not espActive
+    if espActive then
+        EspButton.Text = "👁️ Treasury Bond ESP: AÇIK ✅"
+        EspButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+    else
+        EspButton.Text = "👁️ Treasury Bond ESP: KAPALI"
+        EspButton.BackgroundColor3 = Color3.fromRGB(142, 68, 173)
+    end
+    
+    task.spawn(function()
+        while espActive do
+            pcall(function()
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if not espActive then break end
+                    if obj and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                        local n = obj.Name:lower()
+                        local ignored = n:find("armor") or n:find("chestplate") or n:find("helmet") or n:find("gold") or n:find("cash")
+                        if not ignored then
+                            local match = false
+                            for _, kw in ipairs(Configuration.TargetKeywords) do
+                                if n:find(kw) then match = true break end
+                            end
+                            if match then
+                                if not obj:FindFirstChild("EnterpriseBondHighlight") then
+                                    local hl = Instance.new("Highlight")
+                                    hl.Name = "EnterpriseBondHighlight"
+                                    hl.Adornee = obj
+                                    hl.Parent = obj
+                                    hl.FillColor = Color3.fromRGB(243, 156, 18)
+                                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            task.wait(2)
+        end
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            pcall(function()
+                local hl = obj:FindFirstChild("EnterpriseBondHighlight")
+                if hl then hl:Destroy() end
+            end)
+        end
+    end)
+end)
+
+-- Kapatma / Küçültme
+local OpenButton = Instance.new("TextButton")
+OpenButton.Parent = ScreenGui
+OpenButton.BackgroundColor3 = Color3.fromRGB(6, 6, 10)
+OpenButton.Position = UDim2.new(0.05, 0, 0.05, 0)
+OpenButton.Size = UDim2.new(0, 48, 0, 48)
+OpenButton.Font = Enum.Font.GothamBold
+OpenButton.Text = "🚂"
+OpenButton.TextColor3 = Color3.fromRGB(243, 156, 18)
+OpenButton.TextSize = 20
+OpenButton.Visible = false
+OpenButton.Active = true
+OpenButton.Draggable = true
+Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", OpenButton).Color = Color3.fromRGB(243, 156, 18)
+
+CloseButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenButton.Visible = true
+end)
+OpenButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    OpenButton.Visible = false
+end)
