@@ -1,0 +1,463 @@
+--[[
+    ===================================================================================
+    🚂 DEAD RAILS - ULTIMATE TREASURY BOND FARMER (v11.1 FIXED)
+    ===================================================================================
+--]]
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 30) or CoreGui
+
+pcall(function()
+    if PlayerGui:FindFirstChild("DeadRails_v11_Enterprise") then
+        PlayerGui.DeadRails_v11_Enterprise:Destroy()
+    end
+    if CoreGui:FindFirstChild("DeadRails_v11_Enterprise") then
+        CoreGui.DeadRails_v11_Enterprise:Destroy()
+    end
+end)
+
+local Config = {
+    FarmEnabled = false,
+    TweenSpeed = 250,
+    ScanInterval = 0.2,
+    InteractionDelay = 0.1,
+    NoclipEnabled = true,
+    TargetHeightOffset = 2.5,
+    
+    ESPEnabled = true,
+    ESPColor = Color3.fromRGB(243, 156, 18),
+    ESPFillTransparency = 0.4,
+    ESPOutlineTransparency = 0,
+    
+    -- SADECE TAHVİL KELİMELERİ (Gazete/Paper Çıkarıldı)
+    WhitelistKeywords = {
+        "bond",
+        "tahvil",
+        "treasury"
+    },
+    
+    -- ENGELLEME LİSTESİ (Gazete ve Tıbbi Malzemeler Yassak)
+    BlacklistKeywords = {
+        "newspaper",
+        "cure",
+        "bandage",
+        "medical",
+        "armor",
+        "chestplate",
+        "helmet",
+        "gun",
+        "rifle",
+        "ammo",
+        "bullet",
+        "gold",
+        "cash",
+        "money",
+        "wood",
+        "iron",
+        "plank"
+    }
+}
+
+local State = {
+    TotalCollected = 0,
+    CurrentTarget = nil,
+    LogHistory = {}
+}
+
+local function AddLog(msg)
+    local timestamp = os.date("%H:%M:%S")
+    table.insert(State.LogHistory, string.format("[%s] %s", timestamp, msg))
+    if #State.LogHistory > 40 then table.remove(State.LogHistory, 1) end
+    print("[Dead Rails v11 Log]: " .. msg)
+end
+
+local function GetCharacter()
+    local char = LocalPlayer.Character
+    if not char then return nil, nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    return char, hrp
+end
+
+RunService.Stepped:Connect(function()
+    if Config.FarmEnabled and Config.NoclipEnabled then
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+local function ResetVelocity(hrp)
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+end
+
+local ESPContainer = Instance.new("Folder")
+ESPContainer.Name = "DeadRails_ESP_Holder"
+ESPContainer.Parent = Workspace
+
+local function ClearESP()
+    ESPContainer:ClearAllChildren()
+end
+
+local function CreateESPForTarget(obj, text)
+    if not Config.ESPEnabled or not obj then return end
+    local targetPart = obj:IsA("BasePart") and obj or (obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")))
+    if not targetPart then return end
+    
+    local hl = Instance.new("Highlight")
+    hl.Adornee = obj
+    hl.FillColor = Config.ESPColor
+    hl.FillTransparency = Config.ESPFillTransparency
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.Parent = ESPContainer
+    
+    local bb = Instance.new("BillboardGui")
+    bb.Adornee = targetPart
+    bb.Size = UDim2.new(0, 150, 0, 40)
+    bb.StudsOffset = Vector3.new(0, 3, 0)
+    bb.AlwaysOnTop = true
+    
+    local txt = Instance.new("TextLabel")
+    txt.Parent = bb
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.Text = string.format("📜 %s", text or obj.Name)
+    txt.TextColor3 = Config.ESPColor
+    txt.Font = Enum.Font.GothamBold
+    txt.TextSize = 12
+    bb.Parent = ESPContainer
+end
+
+local function IsValidTarget(obj)
+    if not obj then return false end
+    local name = obj.Name:lower()
+    
+    -- Blacklist Kontrolü
+    for _, black in ipairs(Config.BlacklistKeywords) do
+        if name:find(black) then return false end
+    end
+    
+    -- Whitelist Kontrolü (İsimden)
+    for _, white in ipairs(Config.WhitelistKeywords) do
+        if name:find(white) then return true end
+    end
+    
+    -- ProximityPrompt Kontrolü
+    for _, descendant in pairs(obj:GetDescendants()) do
+        if descendant:IsA("ProximityPrompt") then
+            local actionText = (descendant.ActionText or ""):lower()
+            local objectText = (descendant.ObjectText or ""):lower()
+            
+            local isBlacklisted = false
+            for _, black in ipairs(Config.BlacklistKeywords) do
+                if actionText:find(black) or objectText:find(black) then
+                    isBlacklisted = true
+                    break
+                end
+            end
+            
+            if not isBlacklisted then
+                for _, white in ipairs(Config.WhitelistKeywords) do
+                    if actionText:find(white) or objectText:find(white) then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
+local function FindBestTarget()
+    local _, hrp = GetCharacter()
+    if not hrp then return nil end
+    
+    local closestTarget = nil
+    local shortestDistance = 999999
+    
+    ClearESP()
+    
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if not Config.FarmEnabled then break end
+        
+        if (obj:IsA("BasePart") or obj:IsA("Model")) and IsValidTarget(obj) then
+            local pos = obj:IsA("BasePart") and obj.Position or (obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")).Position)
+            
+            if pos then
+                local dist = (pos - hrp.Position).Magnitude
+                CreateESPForTarget(obj, string.format("%s (%dm)", obj.Name, math.floor(dist)))
+                
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closestTarget = {Object = obj, Position = pos, Distance = dist}
+                end
+            end
+        end
+    end
+    
+    return closestTarget
+end
+
+local function SafeBypassTween(hrp, targetPos)
+    if not hrp or not targetPos then return false end
+    ResetVelocity(hrp)
+    
+    local destinationCFrame = CFrame.new(targetPos + Vector3.new(0, Config.TargetHeightOffset, 0))
+    local distance = (hrp.Position - destinationCFrame.Position).Magnitude
+    local tweenTime = distance / Config.TweenSpeed
+    if tweenTime < 0.05 then tweenTime = 0.05 end
+    
+    local tweenInfo = TweenInfo.new(tweenTime, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, tweenInfo, {CFrame = destinationCFrame})
+    
+    local completed = false
+    local connection
+    connection = tween.Completed:Connect(function()
+        completed = true
+        if connection then connection:Disconnect() end
+    end)
+    
+    tween:Play()
+    
+    local timeout = 0
+    while not completed and Config.FarmEnabled do
+        ResetVelocity(hrp)
+        task.wait(0.02)
+        timeout = timeout + 0.02
+        if timeout > tweenTime + 2 then
+            tween:Cancel()
+            break
+        end
+    end
+    
+    ResetVelocity(hrp)
+    return true
+end
+
+local function InteractWithTarget(targetObj)
+    if not targetObj then return false end
+    local _, hrp = GetCharacter()
+    local interacted = false
+    
+    for _, prompt in pairs(targetObj:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            pcall(function()
+                prompt.HoldDuration = 0
+                prompt.MaxActivationDistance = 99999
+                fireproximityprompt(prompt)
+                interacted = true
+            end)
+        end
+    end
+    
+    for _, cd in pairs(targetObj:GetDescendants()) do
+        if cd:IsA("ClickDetector") then
+            pcall(function()
+                fireclickdetector(cd)
+                interacted = true
+            end)
+        end
+    end
+    
+    if hrp then
+        for _, touch in pairs(targetObj:GetDescendants()) do
+            if touch:IsA("TouchTransmitter") then
+                pcall(function()
+                    firetouchinterest(hrp, touch.Parent, 0)
+                    firetouchinterest(hrp, touch.Parent, 1)
+                    interacted = true
+                end)
+            end
+        end
+    end
+    
+    return interacted
+end
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DeadRails_v11_Enterprise"
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 17, 23)
+MainFrame.Position = UDim2.new(0.5, -200, 0.15, 0)
+MainFrame.Size = UDim2.new(0, 400, 0, 320)
+MainFrame.Active = true
+MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = Color3.fromRGB(243, 156, 18)
+MainStroke.Thickness = 2
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Parent = MainFrame
+TitleBar.BackgroundColor3 = Color3.fromRGB(22, 25, 35)
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 10)
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Parent = TitleBar
+TitleText.BackgroundTransparency = 1
+TitleText.Position = UDim2.new(0, 12, 0, 0)
+TitleText.Size = UDim2.new(1, -24, 1, 0)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.Text = "🚂 Dead Rails v11.1 - Fixed Bond Suite"
+TitleText.TextColor3 = Color3.fromRGB(243, 156, 18)
+TitleText.TextSize = 13
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+
+local StatusFrame = Instance.new("Frame")
+StatusFrame.Parent = MainFrame
+StatusFrame.BackgroundColor3 = Color3.fromRGB(22, 25, 35)
+StatusFrame.Position = UDim2.new(0, 12, 0, 45)
+StatusFrame.Size = UDim2.new(1, -24, 0, 75)
+Instance.new("UICorner", StatusFrame).CornerRadius = UDim.new(0, 8)
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Parent = StatusFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0, 10, 0, 5)
+StatusLabel.Size = UDim2.new(1, -20, 1, -10)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "Durum: Pasif\nHedef: Bulunmadı\nToplanan Tahvil (Bond): 0"
+StatusLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+StatusLabel.TextSize = 12
+StatusLabel.TextWrapped = true
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Parent = MainFrame
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+ToggleBtn.Position = UDim2.new(0, 12, 0, 130)
+ToggleBtn.Size = UDim2.new(1, -24, 0, 45)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Text = "▶ OTOMATİK TAHVİL FARM'INI BAŞLAT"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.TextSize = 13
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
+
+local LogFrame = Instance.new("ScrollingFrame")
+LogFrame.Parent = MainFrame
+LogFrame.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
+LogFrame.Position = UDim2.new(0, 12, 0, 185)
+LogFrame.Size = UDim2.new(1, -24, 0, 120)
+LogFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+LogFrame.ScrollBarThickness = 4
+Instance.new("UICorner", LogFrame).CornerRadius = UDim.new(0, 6)
+
+local LogLayout = Instance.new("UIListLayout")
+LogLayout.Parent = LogFrame
+LogLayout.SortOrder = Enum.SortOrder.LayoutOrder
+LogLayout.Padding = UDim.new(0, 3)
+
+local function UpdateLogUI()
+    for _, child in pairs(LogFrame:GetChildren()) do
+        if child:IsA("TextLabel") then child:Destroy() end
+    end
+    
+    for idx, logEntry in ipairs(State.LogHistory) do
+        local lbl = Instance.new("TextLabel")
+        lbl.Parent = LogFrame
+        lbl.Size = UDim2.new(1, -10, 0, 16)
+        lbl.BackgroundTransparency = 1
+        lbl.Font = Enum.Font.Code
+        lbl.Text = logEntry
+        lbl.TextColor3 = Color3.fromRGB(180, 180, 180)
+        lbl.TextSize = 10
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+    end
+    
+    LogFrame.CanvasSize = UDim2.new(0, 0, 0, #State.LogHistory * 19)
+    LogFrame.CanvasPosition = Vector2.new(0, LogFrame.CanvasSize.Y.Offset)
+end
+
+local function StartFarmLoop()
+    task.spawn(function()
+        AddLog("Tahvil Toplama Döngüsü Başlatıldı.")
+        
+        while Config.FarmEnabled do
+            local _, hrp = GetCharacter()
+            
+            if hrp then
+                StatusLabel.Text = string.format("Durum: Harita Taranıyor (Banka/Kale)...\nHedef: Aranıyor...\nToplanan: %d", State.TotalCollected)
+                
+                local bestTarget = FindBestTarget()
+                
+                if bestTarget and Config.FarmEnabled then
+                    State.CurrentTarget = bestTarget.Object
+                    local targetName = bestTarget.Object.Name
+                    
+                    AddLog("Hedef Bulundu: " .. targetName .. " (" .. math.floor(bestTarget.Distance) .. "m)")
+                    StatusLabel.Text = string.format("Durum: Hedefe Uçuluyor 🚀\nHedef: %s\nToplanan: %d", targetName, State.TotalCollected)
+                    
+                    local success = SafeBypassTween(hrp, bestTarget.Position)
+                    
+                    if success and Config.FarmEnabled then
+                        StatusLabel.Text = string.format("Durum: Eşya Toplanıyor 🖐️\nHedef: %s\nToplanan: %d", targetName, State.TotalCollected)
+                        task.wait(Config.InteractionDelay)
+                        
+                        local collected = InteractWithTarget(bestTarget.Object)
+                        
+                        if collected then
+                            State.TotalCollected = State.TotalCollected + 1
+                            AddLog("Başarıyla Toplandı: " .. targetName)
+                            StatusLabel.Text = string.format("Durum: Toplandı! ✅\nSon Eşya: %s\nToplanan: %d", targetName, State.TotalCollected)
+                        else
+                            AddLog("Etkileşim Denendi: " .. targetName)
+                        end
+                        
+                        task.wait(0.2)
+                    end
+                else
+                    task.wait(Config.ScanInterval)
+                end
+            else
+                StatusLabel.Text = "Durum: Karakter Bekleniyor..."
+                task.wait(1)
+            end
+            
+            UpdateLogUI()
+            task.wait(0.1)
+        end
+        
+        ClearESP()
+        AddLog("Tahvil Farm'ı Durduruldu.")
+        StatusLabel.Text = string.format("Durum: Durduruldu\nHedef: Yok\nToplanan: %d", State.TotalCollected)
+        UpdateLogUI()
+    end)
+end
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    Config.FarmEnabled = not Config.FarmEnabled
+    
+    if Config.FarmEnabled then
+        ToggleBtn.Text = "⏹️ FARM'I DURDUR"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+        StartFarmLoop()
+    else
+        ToggleBtn.Text = "▶ OTOMATİK TAHVİL FARM'INI BAŞLAT"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+    end
+end)
+
+AddLog("Dead Rails v11.1 Yüklendi.")
+AddLog("Newspaper/Cure Engellendi (Sadece Bond).")
+UpdateLogUI()
